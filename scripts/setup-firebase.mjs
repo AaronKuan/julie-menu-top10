@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const projectId = process.argv[2] || 'digital-signage-menu-pim';
 const displayName = process.argv[3] || 'Digital-Signage-Menu-PIM';
@@ -111,7 +112,12 @@ try {
 
 runFirebase(['deploy', '--only', 'firestore:rules,firestore:indexes,hosting'], { stdio: 'inherit' });
 
+execSync(`node "${join(process.cwd(), 'scripts', 'seed-menu.mjs')}" ${quoteArg(projectId)}`, {
+  encoding: 'utf8',
+  stdio: 'inherit',
+  windowsHide: true
+});
+
 console.log('');
 console.log('Done.');
-console.log('Next: in Firebase Console -> Firestore, create document menu/current using firestore-seed.example.json');
 console.log(`Hosting URL: https://${projectId}.web.app`);
