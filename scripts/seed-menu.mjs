@@ -3,8 +3,8 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 const projectId = process.argv[2] || 'digital-signage-menu-pim';
-const FIREBASE_CLI_CLIENT_ID = '563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e2.apps.googleusercontent.com';
-const FIREBASE_CLI_CLIENT_SECRET = 'jEQPZ7uNExSMv0j7';
+const FIREBASE_CLI_CLIENT_ID = '563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com';
+const FIREBASE_CLI_CLIENT_SECRET = 'j9iVZfS8kkCEFUPaAeJV0sAi';
 
 function loadSeed() {
   return JSON.parse(readFileSync(new URL('../firestore-seed.example.json', import.meta.url), 'utf8'));
@@ -24,7 +24,7 @@ function toFirestoreValue(value) {
   throw new Error(`Unsupported seed value: ${JSON.stringify(value)}`);
 }
 
-function findRefreshToken() {
+function loadTokens() {
   const candidates = [
     join(homedir(), '.config', 'configstore', 'firebase-tools.json'),
     join(homedir(), 'AppData', 'Roaming', 'configstore', 'firebase-tools.json')
@@ -33,9 +33,9 @@ function findRefreshToken() {
   for (const filePath of candidates) {
     try {
       const parsed = JSON.parse(readFileSync(filePath, 'utf8'));
-      const token = parsed.tokens?.refresh_token || parsed.refresh_token;
-      if (typeof token === 'string' && token.length > 0) {
-        return token;
+      const tokens = parsed.tokens || parsed;
+      if (tokens && (tokens.refresh_token || tokens.access_token)) {
+        return tokens;
       }
     } catch (error) {
       if (error && error.code !== 'ENOENT') {
@@ -47,11 +47,19 @@ function findRefreshToken() {
   throw new Error('找不到 Firebase 登入憑證。請先執行：npx -y firebase-tools@latest login');
 }
 
-async function getAccessToken(refreshToken) {
+async function getAccessToken() {
+  const tokens = loadTokens();
+  if (typeof tokens.access_token === 'string' && Number(tokens.expires_at) > Date.now() + 60_000) {
+    return tokens.access_token;
+  }
+  if (typeof tokens.refresh_token !== 'string' || tokens.refresh_token.length === 0) {
+    throw new Error('找不到 Firebase 登入憑證。請先執行：npx -y firebase-tools@latest login');
+  }
+
   const body = new URLSearchParams({
     client_id: FIREBASE_CLI_CLIENT_ID,
     client_secret: FIREBASE_CLI_CLIENT_SECRET,
-    refresh_token: refreshToken,
+    refresh_token: tokens.refresh_token,
     grant_type: 'refresh_token'
   });
 
@@ -102,7 +110,7 @@ async function upsertMenuDocument(accessToken, seed) {
 }
 
 const seed = loadSeed();
-const accessToken = await getAccessToken(findRefreshToken());
+const accessToken = await getAccessToken();
 await upsertMenuDocument(accessToken, seed);
 console.log(`Wrote menu/current in ${projectId}`);
 console.log('Open Firebase Console → Firestore → menu / current to confirm the fields.');
