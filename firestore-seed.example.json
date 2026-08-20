@@ -1,0 +1,23 @@
+{
+  "slideA": {
+    "newProduct": "新品上市",
+    "slogan": "\\ 櫻桃香氣 × 酥脆塔皮 × 濃郁乳酪 /",
+    "productName": "櫻桃乳酪塔",
+    "productNameEng": "Cherry Cream Chess Tart",
+    "price": "65",
+    "specialPrice": "/ 兩入優惠價 $120"
+  },
+  "slideB": {
+    "member": "不限會員",
+    "saleTitle": "隨心搭配\n直享優惠",
+    "onePlusone": "1 餐食 + 1 飲品"
+  },
+  "slideC": {
+    "menthawashed": "哥倫比亞 蒙大布蘭蔻莊園 薄荷水洗",
+    "menthawashedEng": "Colombia Finca Monteblanco Mentha Washed",
+    "mprice": "105",
+    "citricnatural": "哥倫比亞 蒙大布蘭蔻莊園 檸檬日曬",
+    "citricnaturalEng": "Colombia Finca Monteblanco Citric Natural",
+    "cprice": "105"
+  }
+}
