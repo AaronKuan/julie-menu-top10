@@ -1,38 +1,58 @@
-import { spawnSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 
-const projectId = process.argv[2] || 'julie-menu-top10';
-const displayName = process.argv[3] || 'Julie Menu Top10';
+const projectId = process.argv[2] || 'digital-signage-menu-pim';
+const displayName = process.argv[3] || 'Digital-Signage-Menu-PIM';
 const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
-function runFirebase(args, options = {}) {
-  const result = spawnSync(npxCommand, ['-y', 'firebase-tools@latest', ...args], {
-    encoding: 'utf8',
-    shell: process.platform === 'win32',
-    stdio: options.stdio || ['ignore', 'pipe', 'pipe']
-  });
+function quoteArg(value) {
+  if (!/[\s"]/.test(value)) {
+    return value;
+  }
+  return `"${value.replace(/"/g, '\\"')}"`;
+}
 
-  if (result.error) {
-    throw result.error;
+function extractSuccessJson(text) {
+  const objectStart = text.indexOf('{');
+  if (objectStart < 0) {
+    return null;
   }
-  if (result.status !== 0) {
-    const details = `${result.stderr || ''}${result.stdout || ''}`.trim();
-    throw new Error(details || `Firebase command failed: ${args.join(' ')}`);
+  try {
+    return JSON.parse(text.slice(objectStart));
+  } catch (error) {
+    return null;
   }
-  return result.stdout || '';
+}
+
+function runFirebase(args, options = {}) {
+  const command = `${npxCommand} -y firebase-tools@latest ${args.map(quoteArg).join(' ')}`;
+  try {
+    return execSync(command, {
+      encoding: 'utf8',
+      stdio: options.stdio || ['ignore', 'pipe', 'pipe'],
+      windowsHide: true
+    }) || '';
+  } catch (error) {
+    const text = `${error.stdout || ''}${error.stderr || ''}`;
+    const parsed = extractSuccessJson(text);
+    const windowsCliCrash = text.includes('UV_HANDLE_CLOSING');
+    if (parsed && parsed.status === 'success') {
+      return error.stdout || text;
+    }
+    if (windowsCliCrash && options.stdio === 'inherit') {
+      console.log('Firebase CLI finished with a Windows-only process warning; continuing.');
+      return '';
+    }
+    throw new Error(text.trim() || `Firebase command failed: ${args.join(' ')}`);
+  }
 }
 
 function parseJson(text) {
-  const objectStart = text.indexOf('{');
-  const arrayStart = text.indexOf('[');
-  let start = -1;
-  if (objectStart >= 0 && arrayStart >= 0) {
-    start = Math.min(objectStart, arrayStart);
-  } else {
-    start = Math.max(objectStart, arrayStart);
+  const parsed = extractSuccessJson(text);
+  if (!parsed) {
+    throw new Error(`Could not parse Firebase JSON output:\n${text}`);
   }
-  const sliced = start >= 0 ? text.slice(start) : text;
-  return JSON.parse(sliced);
+  return parsed;
 }
 
 function listFromCliJson(text) {
