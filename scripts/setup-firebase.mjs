@@ -1,19 +1,38 @@
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 
 const projectId = process.argv[2] || 'julie-menu-top10';
 const displayName = process.argv[3] || 'Julie Menu Top10';
+const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
 function runFirebase(args, options = {}) {
-  return execFileSync('npx', ['-y', 'firebase-tools@latest', ...args], {
+  const result = spawnSync(npxCommand, ['-y', 'firebase-tools@latest', ...args], {
     encoding: 'utf8',
-    stdio: options.stdio || ['ignore', 'pipe', 'pipe'],
-    ...options
+    shell: process.platform === 'win32',
+    stdio: options.stdio || ['ignore', 'pipe', 'pipe']
   });
+
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    const details = `${result.stderr || ''}${result.stdout || ''}`.trim();
+    throw new Error(details || `Firebase command failed: ${args.join(' ')}`);
+  }
+  return result.stdout || '';
 }
 
 function parseJson(text) {
-  return JSON.parse(text);
+  const objectStart = text.indexOf('{');
+  const arrayStart = text.indexOf('[');
+  let start = -1;
+  if (objectStart >= 0 && arrayStart >= 0) {
+    start = Math.min(objectStart, arrayStart);
+  } else {
+    start = Math.max(objectStart, arrayStart);
+  }
+  const sliced = start >= 0 ? text.slice(start) : text;
+  return JSON.parse(sliced);
 }
 
 function listFromCliJson(text) {
