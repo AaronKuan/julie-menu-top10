@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: menu
+    // Document: current
+    // Fields: slideA, slideB, slideC (maps of strings for copy/image URLs)
+    // Writes: only a verified admin email (set ADMIN_EMAIL below)
+    // Reads: public — this is a storefront animation shown on-screen
+    // ===============================================================
+
+    function isVerifiedAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email == 'admin@ultron-ad.com';
+    }
+
+    function isNonEmptyString(value) {
+      return value is string && value.size() > 0 && value.size() < 2000;
+    }
+
+    function isValidSlideA(slide) {
+      return slide is map
+        && isNonEmptyString(slide.newProduct)
+        && isNonEmptyString(slide.slogan)
+        && isNonEmptyString(slide.productName)
+        && isNonEmptyString(slide.productNameEng)
+        && isNonEmptyString(slide.price)
+        && isNonEmptyString(slide.specialPrice);
+    }
+
+    function isValidSlideB(slide) {
+      return slide is map
+        && isNonEmptyString(slide.member)
+        && isNonEmptyString(slide.saleTitle)
+        && isNonEmptyString(slide.onePlusone);
+    }
+
+    function isValidSlideC(slide) {
+      return slide is map
+        && isNonEmptyString(slide.menthawashed)
+        && isNonEmptyString(slide.menthawashedEng)
+        && isNonEmptyString(slide.mprice)
+        && isNonEmptyString(slide.citricnatural)
+        && isNonEmptyString(slide.citricnaturalEng)
+        && isNonEmptyString(slide.cprice);
+    }
+
+    function isValidMenu(data) {
+      return data.keys().hasOnly(['slideA', 'slideB', 'slideC'])
+        && isValidSlideA(data.slideA)
+        && isValidSlideB(data.slideB)
+        && isValidSlideC(data.slideC);
+    }
+
+    match /menu/{docId} {
+      allow read: if docId == 'current';
+      allow create, update: if docId == 'current'
+        && isVerifiedAdmin()
+        && isValidMenu(request.resource.data);
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
